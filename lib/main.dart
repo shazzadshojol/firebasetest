@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'firebase_options.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -15,9 +15,14 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
@@ -35,15 +40,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // instance created
   final firebaseStorage = FirebaseStorage.instance;
-
-  // Storage bucket
   final storageBuckets =
       FirebaseStorage.instanceFor(bucket: "gs://fir-test-51a6b.appspot.com");
 
   final ImagePicker _imagePicker = ImagePicker();
-  final List _imageUrls = [];
+  final List<String> _imageUrls = [];
+  bool _inProgress = false;
 
   @override
   Widget build(BuildContext context) {
@@ -56,8 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ElevatedButton(
-              onPressed: _uploadImage, child: const Text('Pick images')),
           Expanded(
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -73,28 +74,41 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         ],
       ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Visibility(
+          visible: _inProgress == false,
+          replacement: const Center(
+            child: CircularProgressIndicator(),
+          ),
+          child: FloatingActionButton(
+            onPressed: _pickImages,
+            backgroundColor: Colors.amber,
+            child: const Icon(
+              Icons.camera,
+              size: 50,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
-  Future<void> _uploadImage() async {
-    // image picker used
+  Future<void> _pickImages() async {
+    _inProgress = true;
+    setState(() {});
     final pickedFile =
         await _imagePicker.pickImage(source: ImageSource.gallery);
     if (pickedFile != null) {
-      // image upload operation
       final imageLocation =
-          storageBuckets.ref().child("images/${pickedFile.name}");
+          storageBuckets.ref().child("images/${DateTime.now()}.jpg");
 
       UploadTask uploadOperation = imageLocation.putFile(File(pickedFile.path));
 
-      // print(uploadOperation);
-      // .split('/').last
-      // if (kDebugMode) {
-      //   print(pickedFile.path.split('/').last);
-      // }
       TaskSnapshot uploadDone = await uploadOperation.whenComplete(() => null);
       String downloadUrl = await uploadDone.ref.getDownloadURL();
       _imageUrls.add(downloadUrl);
+      _inProgress = false;
       setState(() {});
     }
   }
